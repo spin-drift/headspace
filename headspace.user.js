@@ -1058,25 +1058,36 @@
     if (SITE === 'lit') {
       let debounce;
       let isReplacing = false;
-      const origApply = applyReplacements;
+      let lastURL = location.href;
 
-      // Wrap applyReplacements to pause observer during DOM writes
       const safeApply = () => {
         isReplacing = true;
-        origApply();
+        applyReplacements();
         setTimeout(() => { isReplacing = false; }, 50);
       };
 
+      // Watch for DOM changes (new story paragraphs loaded)
       const observer = new MutationObserver(() => {
         if (isReplacing) return;
+
+        // Detect SPA page navigation via URL change
+        if (location.href !== lastURL) {
+          lastURL = location.href;
+          // New page: clear original-text cache so fresh content gets processed
+          document.querySelectorAll('[data-hs-original]').forEach(el => {
+            delete el.dataset.hsOriginal;
+          });
+        }
+
         clearTimeout(debounce);
         debounce = setTimeout(() => {
           const s = getActive();
           if (s.enabled && (s.changePronouns || s.changeNames)) safeApply();
-        }, 400);
+        }, 300);
       });
-      const contentArea = document.querySelector('[class*="panel"]') || document.body;
-      observer.observe(contentArea, { childList: true, subtree: true });
+
+      // Observe document.body to catch all content swaps across the SPA
+      observer.observe(document.body, { childList: true, subtree: true });
     }
   }
 
