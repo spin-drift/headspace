@@ -7,7 +7,11 @@
 // @match        https://archiveofourown.org/works/*
 // @grant        none
 // @run-at       document-idle
+// @downloadURL  https://greasyfork.org/en/scripts/571470-headspace
+// @license      MIT
 // ==/UserScript==
+
+/* jshint esversion: 11 */
 
 (function () {
   'use strict';
