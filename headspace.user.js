@@ -7,6 +7,7 @@
 // @match        https://archiveofourown.org/works/*
 // @grant        none
 // @run-at       document-idle
+// @updateURL    https://greasyfork.org/en/scripts/571470-headspace
 // @downloadURL  https://greasyfork.org/en/scripts/571470-headspace
 // @license      MIT
 // ==/UserScript==
@@ -821,8 +822,17 @@
           background-color: rgb(16, 16, 16);
         }
 
+        @media screen and (max-width: 479px) {
+          .hs-panel {
+            padding-left: 18px;
+            padding-right: 18px;
+            padding-top: 15px;
+            padding-bottom: 15px;
+          }
+        }
+
         .hs-icon-symbol { font-style: normal; font-size: 18px; font-weight: bold; line-height: 1; vertical-align: middle; position: relative; top: -5px; }
-        .hs-panel { padding: 2px 0; font-family: inherit; font-size: inherit; color: inherit; }
+        .hs-panel { font-family: inherit; font-size: inherit; color: inherit; }
         .hs-heading { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .03em; opacity: .7; }
         .hs-scope-group { display: flex; margin-bottom: 12px; border: 1px solid rgba(128,128,128,.3); border-radius: 4px; overflow: hidden; }
         .hs-scope-group button { flex: 1; padding: 5px 0; font-family: inherit; border: none; background: transparent; color: inherit; cursor: pointer; transition: background .15s; font-weight: 400; }
