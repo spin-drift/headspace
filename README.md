@@ -12,6 +12,8 @@ A lil' tool that lets you customize names and pronouns while reading on a select
 
 Can't disambiguate individual character pronouns. This is another way of saying: when this is on, everyone is gay (you're welcome).
 
+Swapping from binary to non-binary pronouns works better than the reverse. The script has a lot of logic for deciding when exactly to use e.g. they, them, or theirs, but is much less capable of e.g. recognizing when to leave "they" alone or turn it into "she".
+
 ## Install
 
 1. Open [Tampermonkey](https://www.tampermonkey.net/) (or your preferred userscript manager)
@@ -22,7 +24,7 @@ Can't disambiguate individual character pronouns. This is another way of saying:
 
 **Literotica:** Click the **⚧** icon where fic info is.
 
-**AO3:** Go to **Userscripts** > **Headspace**.
+**AO3:** Go to **Userscripts** → **Headspace**.
 
 Choose whether to customize **All fics** or **This fic**, then change settings to your liking.
 
