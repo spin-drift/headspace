@@ -7,8 +7,8 @@
 // @match        https://archiveofourown.org/works/*
 // @grant        none
 // @run-at       document-idle
-// @updateURL    https://greasyfork.org/en/scripts/571470-headspace
-// @downloadURL  https://greasyfork.org/en/scripts/571470-headspace
+// @updateURL    https://greasyfork.org/scripts/571470/Headspace.meta.js
+// @downloadURL  https://greasyfork.org/scripts/571470/Headspace.user.js
 // @license      MIT
 // ==/UserScript==
 
