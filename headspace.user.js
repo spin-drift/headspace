@@ -459,19 +459,67 @@
   // =====================================================================
   //  DOM APPLICATION (shared)
   // =====================================================================
+  function $$(sel) {
+    try { return document.querySelectorAll(sel); } catch { return []; }
+  }
+
+  // Last-resort fallback for locating the story body when no known container
+  // selector matches (e.g. the site renamed its containers). Groups <p> by
+  // parent and picks the parent whose paragraphs hold the most text — on a
+  // fiction page that's the story itself. Chrome (nav/comments/cards/etc.) is
+  // filtered out so a long comment thread can't win.
+  const PROSE_EXCLUDE = /comment|footer|header|\bnav\b|sidebar|aside|related|menu|promo|advert|\bshare\b|widget|\bcard\b|stats/i;
+  function findProseParagraphs() {
+    const groups = new Map();
+    for (const p of document.querySelectorAll('p')) {
+      const text = (p.textContent || '').trim();
+      if (text.length < 40) continue;                       // skip labels/blurbs
+      if (p.closest('nav, header, footer, aside, form')) continue;
+      const parent = p.parentElement;
+      if (!parent) continue;
+      let chrome = false;
+      for (let el = parent; el && el !== document.body; el = el.parentElement) {
+        const sig = (el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '');
+        if (PROSE_EXCLUDE.test(sig)) { chrome = true; break; }
+      }
+      if (chrome) continue;
+      const g = groups.get(parent) || { len: 0, ps: [] };
+      g.len += text.length;
+      g.ps.push(p);
+      groups.set(parent, g);
+    }
+    let best = null;
+    for (const g of groups.values()) if (!best || g.len > best.len) best = g;
+    return best ? best.ps : [];
+  }
+
   function getStoryTargets() {
-    if (SITE === 'lit') {
-      let t = document.querySelectorAll('div[class*="aa_ht"] p');
-      if (!t.length) t = document.querySelectorAll('.panel.article p');
-      if (!t.length) t = document.querySelectorAll('div[class*="reading"] p, div[class*="content"] p');
-      return t;
+    // Try selectors from most to least specific, falling through on no match.
+    // Prefer semantic anchors and class substrings so the script keeps working
+    // when the site renames or restyles its containers.
+    const selectorSets = SITE === 'lit'
+      ? [
+          '[itemprop="articleBody"] p',         // semantic microdata
+          'div[class*="article__content"] p',   // matches on class substring
+          'div[class*="aa_ht"] p',              // older layout
+          '.panel.article p',
+          'div[class*="article"] p',
+          'div[class*="reading"] p, div[class*="content"] p',
+        ]
+      : SITE === 'ao3'
+      ? [
+          '#workskin .userstuff p',
+          '.userstuff p',
+          'div[class*="userstuff"] p',
+        ]
+      : [];
+
+    for (const sel of selectorSets) {
+      const t = $$(sel);
+      if (t.length) return t;
     }
-    if (SITE === 'ao3') {
-      let t = document.querySelectorAll('#workskin .userstuff p');
-      if (!t.length) t = document.querySelectorAll('.userstuff p');
-      return t;
-    }
-    return [];
+    // Nothing matched a known container — detect the story body by content.
+    return findProseParagraphs();
   }
 
   function applyReplacements() {
@@ -798,27 +846,19 @@
     function injectStyles() {
       const style = document.createElement('style');
       style.textContent = `
-        /* :has() tab integration */
-        ._widget__tab_1n1dq_51:has(._tab__list_1n1dq_51 input[id="${TAB_ID}"]:checked)
-          ._tab__pane_1n1dq_875[data-tab="${TAB_DATA}"] {
+        /* Reveal our settings pane when our tab is selected. Matches on
+           attributes and class substrings so it tolerates the site renaming
+           its classes. The site default-hides inactive panes; our pane
+           inherits that and this rule overrides it for our tab. */
+        [class*="widget__tab"]:has(input[id="${TAB_ID}"]:checked)
+          [data-tab="${TAB_DATA}"] {
           display: block !important;
           background-color: rgb(255, 255, 255);
           padding: 10px 5px;
           width: 200px;
         }
-        .dark_theme ._widget__tab_1n1dq_51:has(._tab__list_1n1dq_51 input[id="${TAB_ID}"]:checked)
-          ._tab__pane_1n1dq_875[data-tab="${TAB_DATA}"] {
-          background-color: rgb(16, 16, 16);
-        }
-        ._widget__tab_1n1dq_51:has(._tab__list_1n1dq_51 input[id="mobile_${TAB_ID}"]:checked)
-          ._tab__pane_1n1dq_875[data-tab="${TAB_DATA}"] {
-          display: block !important;
-          background-color: rgb(255, 255, 255);
-          padding: 10px 5px;
-          width: 200px;
-        }
-        .dark_theme ._widget__tab_1n1dq_51:has(._tab__list_1n1dq_51 input[id="mobile_${TAB_ID}"]:checked)
-          ._tab__pane_1n1dq_875[data-tab="${TAB_DATA}"] {
+        .dark_theme [class*="widget__tab"]:has(input[id="${TAB_ID}"]:checked)
+          [data-tab="${TAB_DATA}"] {
           background-color: rgb(16, 16, 16);
         }
 
@@ -871,28 +911,47 @@
     }
 
     function injectTab() {
-      const tabNav = document.querySelector('ul._tab__list_1n1dq_51._tab__list__nav_1n1dq_1069');
+      const tabNav = document.querySelector('ul[class*="tab__list__nav"]')
+                  || document.querySelector('ul[class*="tab__list"]');
       if (!tabNav) { console.warn('[headspace] Tab nav not found'); return; }
+
+      // Copy the class names off an existing tab rather than hardcoding them,
+      // so our tab stays visually consistent with the site's own tabs.
+      const cls = (el) => (el && typeof el.className === 'string') ? el.className : '';
+      const sampleRadio = tabNav.querySelector('li input[type="radio"]');
+      const sampleLabel = tabNav.querySelector('li label');
+      const sampleItem  = tabNav.querySelector('li label > span');
+      const sampleLink  = tabNav.querySelector('li label > span > span');
 
       const li = document.createElement('li');
       li.innerHTML = `
-        <input type="radio" id="${TAB_ID}" name="panel-tabs" class="_tab_radio_1n1dq_1308">
-        <label for="${TAB_ID}" class="_tab_radio_label_1n1dq_1385">
-          <span class="_tab__item_1n1dq_58">
-            <span class="_tab__link_1n1dq_61" title="Headspace">
+        <input type="radio" id="${TAB_ID}" name="panel-tabs" class="${cls(sampleRadio)}">
+        <label for="${TAB_ID}" class="${cls(sampleLabel)}">
+          <span class="${cls(sampleItem)}">
+            <span class="${cls(sampleLink)}" title="Headspace">
               <i class="hs-icon-symbol">\u26A7</i>
             </span>
           </span>
         </label>`;
       tabNav.appendChild(li);
 
-      const tabContent = document.querySelector('div._tab__content_1n1dq_875');
+      // The pane container lives in the same tab widget as the nav.
+      const widget = tabNav.closest('[class*="widget__tab"]');
+      const tabContent = (widget && widget.querySelector('[class*="tab__content"]'))
+                      || document.querySelector('div[class*="tab__content"]');
       if (!tabContent) { console.warn('[headspace] Tab content not found'); return; }
+
+      // Reuse the existing pane's classes (minus any "active" modifier) so our
+      // pane inherits the site's default-hidden styling; our CSS reveals it when
+      // our tab is selected.
+      const samplePane = tabContent.querySelector('[data-tab][role="tabpanel"]')
+                      || document.querySelector('[class*="tab__pane"]');
+      const paneCls = cls(samplePane).split(/\s+/).filter(c => c && !/active/i.test(c)).join(' ');
 
       settingsPane = document.createElement('div');
       settingsPane.dataset.tab = TAB_DATA;
       settingsPane.setAttribute('role', 'tabpanel');
-      settingsPane.className = '_tab__pane_1n1dq_875';
+      if (paneCls) settingsPane.className = paneCls;
       tabContent.appendChild(settingsPane);
 
       renderPanel();
