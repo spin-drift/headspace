@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Headspace
 // @namespace    headspace
-// @version      1.11
+// @version      1.12
 // @description  Customize character names and pronouns on fiction sites
 // @match        https://www.literotica.com/s/*
 // @match        https://archiveofourown.org/works/*
