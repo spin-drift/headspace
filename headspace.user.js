@@ -911,9 +911,18 @@
     }
 
     function injectTab() {
+      // Idempotent and safe to call repeatedly: the site may render the tab
+      // widget after we first run, or replace it when the SPA swaps pages. Bail
+      // if our tab is already in place; otherwise clear any stale remnant first.
+      const existing = document.getElementById(TAB_ID);
+      if (existing && settingsPane && settingsPane.isConnected) return true;
+      if (existing) (existing.closest('li') || existing).remove();
+      if (settingsPane && settingsPane.parentNode) settingsPane.remove();
+      settingsPane = null;
+
       const tabNav = document.querySelector('ul[class*="tab__list__nav"]')
                   || document.querySelector('ul[class*="tab__list"]');
-      if (!tabNav) { console.warn('[headspace] Tab nav not found'); return; }
+      if (!tabNav) return false;
 
       // Copy the class names off an existing tab rather than hardcoding them,
       // so our tab stays visually consistent with the site's own tabs.
@@ -939,7 +948,7 @@
       const widget = tabNav.closest('[class*="widget__tab"]');
       const tabContent = (widget && widget.querySelector('[class*="tab__content"]'))
                       || document.querySelector('div[class*="tab__content"]');
-      if (!tabContent) { console.warn('[headspace] Tab content not found'); return; }
+      if (!tabContent) return false;
 
       // Reuse the existing pane's classes (minus any "active" modifier) so our
       // pane inherits the site's default-hidden styling; our CSS reveals it when
@@ -955,11 +964,12 @@
       tabContent.appendChild(settingsPane);
 
       renderPanel();
+      return true;
     }
 
     injectStyles();
     injectTab();
-    return { renderPanel };
+    return { renderPanel, ensureInjected: injectTab };
   }
 
   // =====================================================================
@@ -1095,7 +1105,7 @@
 
     injectStyles();
     injectMenu();
-    return { renderPanel: renderDialog };
+    return { renderPanel: renderDialog, ensureInjected: injectMenu };
   }
 
   // =====================================================================
@@ -1127,6 +1137,11 @@
 
       // Watch for DOM changes (new story paragraphs loaded)
       const observer = new MutationObserver(() => {
+        // Re-assert our tab. It may not have existed when we first ran (the tab
+        // widget renders after page load), or the SPA may have replaced it on a
+        // page swap. injectTab is idempotent, so this is a cheap no-op once in.
+        adapter.ensureInjected();
+
         if (isReplacing) return;
 
         // Detect SPA page navigation via URL change
@@ -1147,6 +1162,10 @@
 
       // Observe document.body to catch all content swaps across the SPA
       observer.observe(document.body, { childList: true, subtree: true });
+
+      // The observer only fires on future mutations; if the tab widget is
+      // already present (or settles with no further changes), inject now.
+      adapter.ensureInjected();
     }
   }
 
